@@ -113,6 +113,34 @@ namespace eosiorng
     }
 }
 
+namespace mfederationrng
+{
+    static constexpr eosio::name M_FEDERATION_ACCOUNT = eosio::name("m.federation");
+    static constexpr eosio::name PLANETS[6] = {
+        eosio::name("eyeke.world"),
+        eosio::name("kavian.world"),
+        eosio::name("magor.world"),
+        eosio::name("naron.world"),
+        eosio::name("neri.world"),
+        eosio::name("veles.world")};
+
+    struct state_3_s
+    {
+        eosio::time_point last_fill_time;
+        float fill_rate;
+        eosio::asset bucket_total;
+        eosio::asset mine_bucket;
+    };
+
+    typedef eosio::singleton<eosio::name("state3"), state_3_s> state_3_tbl;
+
+    state_3_s get_state_3(const eosio::name &planet)
+    {
+        state_3_tbl state_3(M_FEDERATION_ACCOUNT, planet.value);
+        return state_3.get();
+    }
+}
+
 namespace pseudorng
 {
     /**
@@ -164,6 +192,19 @@ namespace pseudorng
             }
         }
 
+        // check if `m.federation` account exists and fetch entropy from it
+        if (is_account(mfederationrng::M_FEDERATION_ACCOUNT))
+        {
+            for (auto &planet : mfederationrng::PLANETS)
+            {
+                auto state_3 = mfederationrng::get_state_3(planet);
+                values.push_back(state_3.last_fill_time.elapsed.count());
+                values.push_back(state_3.fill_rate);
+                values.push_back(state_3.bucket_total.amount);
+                values.push_back(state_3.mine_bucket.amount);
+            }
+        }
+
         return values;
     }
 
@@ -172,7 +213,7 @@ namespace pseudorng
      *
      * @param min lower bound of the requested integer.
      * @param max upper bound of the requested integer (must be greater than min).
-     * 
+     *
      * @return The generated random int
      */
     uint64_t requestrand(uint64_t min, uint64_t max)
